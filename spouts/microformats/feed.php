@@ -193,11 +193,14 @@ class feed extends \spouts\spout {
      */
     public function getId() {
         if($this->items!==false && $this->valid()) {
-            $id = @current($this->items)['properties']['url'][0];
+        	$item = current($this->items);
+            $id = @$item['properties']['url'][0];
             if(strlen($id)>255)
                 $id = md5($id);
-            if($id == false)
-                $id = md5(@current($this->items)['properties']['name'][0]);
+            if($id == false) {
+	        	$item = current($this->items);
+                $id = md5(@$item['properties']['name'][0]);
+            }
             return $id;
         }
         return false;
@@ -211,7 +214,8 @@ class feed extends \spouts\spout {
      */
     public function getTitle() {
         if($this->items!==false && $this->valid())
-            return @current($this->items)['properties']['name'][0];
+        	$item = current($this->items);
+            return @$item['properties']['name'][0];
         return false;
     }
     
@@ -223,7 +227,8 @@ class feed extends \spouts\spout {
      */
     public function getContent() {
         if($this->items!==false && $this->valid())
-            return current($this->items)['properties']['content'][0]['html'];
+        	$item = current($this->items);
+            return @$item['properties']['content'][0]['html'];
         return false;
     }
     
@@ -235,8 +240,10 @@ class feed extends \spouts\spout {
      */
     public function getIcon() {
         if($this->items!==false && $this->valid()) {
-            if(array_key_exists('author', current($this->items)['properties'])) {
-                return @current($this->items)['properties']['author'][0]['properties']['photo'][0];
+        	$item = current($this->items);
+            if(array_key_exists('author', $item['properties'])) {
+	        	$item = current($this->items);
+                return @$item['properties']['author'][0]['properties']['photo'][0];
             } else {
                 // No author in the entry itself, so use the authorship discovery algorithm to find the author
                 $author = Mf2\getAuthor(current($this->items), $this->feed, $this->url);
@@ -256,7 +263,8 @@ class feed extends \spouts\spout {
      */
     public function getLink() {
         if($this->items!==false && $this->valid())
-            return @current($this->items)['properties']['url'][0];
+        	$item = current($this->items);
+            return @$item['properties']['url'][0];
         return false;
     }
     
@@ -267,8 +275,10 @@ class feed extends \spouts\spout {
      * @return string date
      */
     public function getDate() {
-        if($this->items!==false && $this->valid())
-            $date = date('Y-m-d H:i:s', strtotime(@current($this->items)['properties']['published'][0]));
+        if($this->items!==false && $this->valid()) {
+        	$item = current($this->items);
+            $date = date('Y-m-d H:i:s', strtotime(@$item['properties']['published'][0]));
+        }
         if(strlen($date)==0)
             $date = date('Y-m-d H:i:s');
         return $date;
