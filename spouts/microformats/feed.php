@@ -213,9 +213,10 @@ class feed extends \spouts\spout {
      * @return string title
      */
     public function getTitle() {
-        if($this->items!==false && $this->valid())
+        if($this->items!==false && $this->valid()) {
         	$item = current($this->items);
             return @$item['properties']['name'][0];
+        }
         return false;
     }
     
@@ -226,9 +227,13 @@ class feed extends \spouts\spout {
      * @return string content
      */
     public function getContent() {
-        if($this->items!==false && $this->valid())
+        if($this->items!==false && $this->valid()) {
         	$item = current($this->items);
-            return @$item['properties']['content'][0]['html'];
+            if(@$item['properties']['content'])
+                return @$item['properties']['content'][0]['html'];
+            if(@$item['properties']['summary'])
+                return @$item['properties']['summary'][0];
+        }
         return false;
     }
     
@@ -262,9 +267,10 @@ class feed extends \spouts\spout {
      * @return string link
      */
     public function getLink() {
-        if($this->items!==false && $this->valid())
+        if($this->items!==false && $this->valid()) {
         	$item = current($this->items);
             return @$item['properties']['url'][0];
+        }
         return false;
     }
     
