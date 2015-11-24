@@ -76,7 +76,8 @@ selfoss.events = {
                     if (textStatus == "abort")
                         return;
                     else if (errorThrown)
-                        selfoss.showError('Load list error: '+errorThrown); 
+                        selfoss.showError('Load list error: '+
+                                          textStatus+' '+errorThrown);
                 },
                 complete: function(jqXHR, textStatus) {
                     $('#content').removeClass('loading');
@@ -97,7 +98,6 @@ selfoss.events = {
             var start = $('#nav-tags-wrapper').position().top;
             var windowHeight = $(window).height();
             $('#nav-tags-wrapper').height(windowHeight - start - 100);
-            $("#nav-tags-wrapper").mCustomScrollbar("update");
             $('#nav').show();
         } else {
             $('#nav-tags-wrapper').height("auto");

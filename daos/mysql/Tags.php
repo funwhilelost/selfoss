@@ -76,7 +76,24 @@ class Tags extends Database {
                    FROM '.\F3::get('db_prefix').'tags 
                    ORDER BY LOWER(tag);');
     }
-    
+
+
+    /**
+     * returns all tags with color and unread count
+     *
+     * @return array of all tags
+     */
+    public function getWithUnread() {
+        $select = 'SELECT tag, color, COUNT(items.id) AS unread
+                   FROM '.\F3::get('db_prefix').'tags AS tags,
+                        '.\F3::get('db_prefix').'sources AS sources
+                   LEFT OUTER JOIN '.\F3::get('db_prefix').'items AS items
+                       ON (items.source=sources.id AND '.$this->stmt->isTrue('items.unread').')
+                   WHERE '.$this->stmt->csvRowMatches('sources.tags', 'tags.tag').'
+                   GROUP BY tags.tag, tags.color
+                   ORDER BY LOWER(tags.tag);';
+        return \F3::get('db')->exec($select);
+    }
     
     /**
      * remove all unused tag color definitions
@@ -112,7 +129,12 @@ class Tags extends Database {
      * @return boolean true if color is used by an tag
      */
     public function hasTag($tag) {
-        $res = \F3::get('db')->exec('SELECT COUNT(*) AS amount FROM '.\F3::get('db_prefix').'tags WHERE tag=:tag',
+        if ( \F3::get( 'db_type' ) == 'mysql' ) {
+            $where = 'WHERE tag = _utf8 :tag COLLATE utf8_bin';
+        } else {
+            $where = 'WHERE tag=:tag';
+        }
+        $res = \F3::get('db')->exec('SELECT COUNT(*) AS amount FROM '.\F3::get('db_prefix').'tags '.$where,
                     array(':tag' => $tag));
         return $res[0]['amount']>0;
     }

@@ -39,6 +39,8 @@ class Opml extends BaseController {
      *
      */
     public function show() {
+        $this->needsLoggedIn();
+
         $this->view = new \helpers\View();
         $this->view->msg = $this->msg;
         $this->view->msgclass = $this->msgclass;
@@ -53,6 +55,8 @@ class Opml extends BaseController {
      * @note Borrows from controllers/Sources.php:write
      */
     public function add() {
+        $this->needsLoggedIn();
+
         try {
             $opml = $_FILES['opml'];
             if ($opml['error'] == UPLOAD_ERR_NO_FILE) {
@@ -199,15 +203,15 @@ class Opml extends BaseController {
         if (array_key_exists($hash, $this->imported)) {
             $this->imported[$hash]['tags'] = array_unique(array_merge($this->imported[$hash]['tags'], $tags));
             $tags = implode(',', $this->imported[$hash]['tags']);
-            $this->sourcesDao->edit($this->imported[$hash]['id'], $title, $tags, $spout, $data);
+            $this->sourcesDao->edit($this->imported[$hash]['id'], $title, $tags, '', $spout, $data);
             \F3::get('logger')->log('  OPML import: updated tags for      "' . $title . '"', \DEBUG);
         } elseif ($id = $this->sourcesDao->checkIfExists($title, $spout, $data)) {
             $tags = array_unique(array_merge($this->sourcesDao->getTags($id), $tags));
-            $this->sourcesDao->edit($id, $title, implode(',', $tags), $spout, $data);
+            $this->sourcesDao->edit($id, $title, implode(',', $tags), '', $spout, $data);
             $this->imported[$hash] = Array('id' => $id, 'tags' => $tags);
             \F3::get('logger')->log('  OPML import: updated tags for  "' . $title . '"', \DEBUG);
         } else {
-            $id = $this->sourcesDao->add($title, implode(',', $tags), $spout, $data);
+            $id = $this->sourcesDao->add($title, implode(',', $tags), '', $spout, $data);
             $this->imported[$hash] = Array('id' => $id, 'tags' => $tags);
             \F3::get('logger')->log('  OPML import: successfully imported "' . $title . '"', \DEBUG);
         }
@@ -257,6 +261,8 @@ class Opml extends BaseController {
      * @note Uses the selfoss namespace to store selfoss-specific information
      */
     public function export() {
+        $this->needsLoggedIn();
+
         $this->sourcesDao = new \daos\Sources();
         $this->tagsDao = new \daos\Tags();
 

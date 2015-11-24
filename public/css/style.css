@@ -110,16 +110,17 @@ input {
             color:#777;
         }
         
-        #nav-filter #nav-filter-unread span.unread {
+        span.unread-count.unread {
             background-color: #E74C3C;
             border-radius: 30px;
-            color: white;
-            font-size:0.6em;
+            color: white !important;
+            font-size:0.6em !important;
             font-weight: normal;
             min-width: 8px;
             padding: 0 5px 0 5px;
             margin-left: 5px;
-            vertical-align:baseline;
+            vertical-align:baseline !important;
+            display: inline !important;
         }
     
     #nav h2 {
@@ -232,6 +233,7 @@ input {
         display:none;
     }
     
+    #nav-refresh,
     #nav-settings,
     #nav-logout,
     #nav-login {
@@ -239,8 +241,8 @@ input {
         top:100%;
         margin-top:-80px;
         left:20px;
-        width:55px;
-        height:55px;
+        width:45px;
+        height:45px;
         -moz-border-radius:2px;
         -webkit-border-radius:2px;
         -khtml-border-radius:2px;
@@ -248,22 +250,31 @@ input {
         cursor:pointer;
     }
     
-    #nav-settings.nologin {
-        width:140px;
+    #nav-refresh {
+        background:url(images/nav-refresh.png) no-repeat center center #272325;
     }
     
     #nav-settings {
         background:url(images/nav-sources.png) no-repeat center center #272325;
+        left:70px;
     }
         
     #nav-logout {
         background:url(images/nav-logout.png) no-repeat center center #272325;
-        left:85px;
+        left:120px;
     }    
     
     #nav-login {
         background:url(images/nav-login.png) no-repeat center center #272325;
         width:140px;
+    }
+
+    #nav-settings.nologin, #nav-refresh.nologin {
+        width:70px;
+    }
+
+    #nav-settings.nologin {
+        left:95px;
     }
     
     #nav-mobile {
@@ -396,6 +407,7 @@ input {
 
     .entry.selected.unread,
     .entry.unread {
+        margin-left: 3px;
         border-left:3px solid #5f9490;
     }
 
@@ -425,6 +437,10 @@ input {
         padding-bottom:7px;
     }
     
+        .entry-title a {
+            color:#3d6d69;
+        }
+    
         .entry.unread  .entry-title {
             color:#333333;
         }
@@ -438,6 +454,12 @@ input {
         font-size:0.8em;
         white-space:nowrap;
     }
+
+        .entry-thumbnail img {
+            max-width:99%;
+            display: block;
+            margin: 0 10px 5px 0;
+        }
     
     .entry-content {
         display:none;
@@ -454,6 +476,7 @@ input {
         margin-top:20px;
         line-height: 1.7em;
         overflow: hidden;
+        padding: 0 1em;
     }
     
         .entry-content a {
@@ -485,7 +508,7 @@ input {
             font-style: italic;
         }
 
-        .entry-content.entry-content-short {
+        .entry-content.entry-content-nocolumns {
             -moz-column-count: 1;
             -webkit-column-count: 1;
             column-count: 1;
@@ -494,7 +517,7 @@ input {
         
         .entry-content pre,
         .entry-content blockquote {
-            overflow-x: auto;
+            overflow-x: unset;
         }
     
         .entry-content p,
@@ -512,6 +535,13 @@ input {
             text-indent: 1.3em;
         }
 
+        .entry-content sup {
+            vertical-align: sup;
+        }
+        .entry-content sub {
+            vertical-align: sub;
+        }
+
     .entry-icon,
     .entry-icon img {
         margin-top:3px;
@@ -526,6 +556,7 @@ input {
         display:none;
     }
 
+    .entry-author,
     .entry-source,
     .entry-separator,
     .entry-datetime {
@@ -585,45 +616,13 @@ input {
         .entry-newwindow {
             background-image:url(images/open.png);
         }
-        
-        .entry-toolbar .entry-sharegoogle {
-            border-left:1px solid #CCC;
-            padding-left:30px;
-            background-position: 10px center;
-        }
-        
-        .entry-sharegoogle {
-            background-image:url(images/googleplus.png);
-        }
-        
-        .entry-smartphone-share li.entry-sharetwitter,
-        .entry-toolbar li.entry-sharetwitter {
-            background-image:url(images/twitter.png);
-            background-size:16px 12px;
-        }
-        
-        .entry-sharefacebook {
-            background-image:url(images/facebook.png);
-        }
-        
-        .entry-sharepocket {
-            background-image:url(images/pocket.png);
-        }
 
-        .entry-sharereadability {
-            background-image:url(images/readability.png);
-        }
-    
-        .entry-sharedelicious {
-            background-image:url(images/delicious.png);
-        }
-
-        .entry-smartphone-share li.entry-shareemail,
-        .entry-toolbar li.entry-shareemail {
-            background-image:url(images/mail.png);
-            background-size:16px 10px;
+        .entry-next {
+            background-image:url(images/arrow-right.png);
+            display:none;
         }
         
+
         .entry-toolbar .entry-close {
             display:none;
             width:32px;
@@ -638,7 +637,7 @@ input {
         }
         
     
-    .stream-more {
+    .stream-more, .mark-these-read, .stream-error {
         margin-top:20px;
         margin-bottom:10px;
         height:35px;
@@ -659,7 +658,11 @@ input {
         .stream-more.loading span {
             display:none;
         }
-        
+
+        .stream-error {
+            display:none;
+        }
+
 #fullscreen-entry {
     display:none;
 }
@@ -684,6 +687,7 @@ input {
 }
 
 .source-edit-delete,
+.source-days,
 .source-action {
     display:inline;
     color:#aaa;
@@ -904,6 +908,9 @@ body.publicmode.notloggedin .entry-unread {
         height:100%;
     }
     
+    .mark-these-read {
+        display: none;
+    }
 }
 
 /* ipad and smartphone */
@@ -941,12 +948,31 @@ body.publicmode.notloggedin .entry-unread {
         padding-top:20px;
     }
     
-    #nav-settings.nologin {
-        width:120px;
-    }
-    
     #nav-login {
         width:120px;
+    }
+
+    #nav-refresh,
+    #nav-settings,
+    #nav-logout,
+    #nav-login {
+        width:40px;
+    }
+    
+    #nav-settings {
+        left:65px;
+    }
+    
+    #nav-logout {
+        left:110px;
+    }
+    
+    #nav-settings.nologin, #nav-refresh.nologin {
+        width:55px;
+    }
+
+    #nav-settings.nologin {
+        left:80px;
     }
     
     #nav-tags .color {
@@ -1002,6 +1028,10 @@ body.publicmode.notloggedin .entry-unread {
     }
     
         .entry-toolbar .entry-loadimages {
+            display:block;
+        }
+
+        .entry-toolbar .entry-next {
             display:block;
         }
    
@@ -1064,6 +1094,14 @@ body.publicmode.notloggedin .entry-unread {
             background-size:96px 40px;
         }
 
+        #nav-mobile-logo span {
+            color: white;
+            position: relative;
+            left: 90px;
+            top: 5px;
+            display: none;
+        }
+
         #nav-mobile-settings {
             position:absolute;
             width:29px;
@@ -1108,6 +1146,7 @@ body.publicmode.notloggedin .entry-unread {
                 cursor:pointer;
             }
         
+        #nav-refresh,
         #nav-settings,
         #nav-logout,
         #nav-login {
@@ -1116,15 +1155,16 @@ body.publicmode.notloggedin .entry-unread {
             left:0;
             margin-left:20px;
             margin-bottom:20px;
-        }
-        
-        #nav-settings {
             float:left;
+        }
+
+        #nav-settings {
+            left:50px;
         }
         
         #nav-login,
         #nav-logout {
-            left:70px;
+            left:100px;
         }
         
         #nav-copyright {
@@ -1159,6 +1199,7 @@ body.publicmode.notloggedin .entry-unread {
             border-top:1px solid #ccc;
         }
         
+        .entry-author,
         .entry-source,
         .entry-separator,
         .entry-datetime {
@@ -1179,6 +1220,7 @@ body.publicmode.notloggedin .entry-unread {
         .entry-content {
             line-height:1.5em;
             font-size:0.95em;
+            padding: 0;
         }
         
     .sp-container {
@@ -1235,6 +1277,19 @@ body.publicmode.notloggedin .entry-unread {
         display:none;
     }
     
+    img.entry-share {
+        float: left;
+        margin: 0 5px 0 0;
+    }
+
+    span.entry-share {
+        text-align:center;
+    }
+
+    .entry-toolbar .entry-next {
+        display:none;
+    }
+    
     .entry-smartphone-share {
         display:block;
         margin-top:10px;
@@ -1247,6 +1302,7 @@ body.publicmode.notloggedin .entry-unread {
             margin-right:10px;
             margin-bottom:5px;
             list-style:none;
+            display:block;
         }
         
     .source-opml,
@@ -1277,3 +1333,22 @@ body.publicmode.notloggedin .entry-unread {
     
  }
  
+/* fancyBox */
+#fancybox-loading, .fancybox-close, .fancybox-prev span, .fancybox-next span {
+    background-image: url('images/fancybox_sprite.png');
+}
+
+#fancybox-loading div {
+    background: url('images/fancybox_loading.gif') center center no-repeat;
+}
+
+.fancybox-nav {
+    background: transparent url('images/blank.gif'); /* helps IE */
+}
+
+.fancybox-overlay {
+    background: url('images/fancybox_overlay.png');
+}
+
+/* emojis */
+img[src^='http://s.w.org/images/core/emoji']{display:inline;height: 1em;margin: 0;}

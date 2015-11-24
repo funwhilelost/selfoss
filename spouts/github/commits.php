@@ -170,7 +170,7 @@ class commits extends \spouts\spout {
         $this->htmlUrl = "https://github.com/" . urlencode($params['owner']) . "/" . urlencode($params['repo']) . "/" . urlencode($params['branch']);
         
         $jsonUrl = "https://api.github.com/repos/" . urlencode($params['owner']) . "/" . urlencode($params['repo']) . "/commits?sha=" . urlencode($params['branch']);
-        $this->items = self::getJsonContent($jsonUrl);
+        $this->items = $this->getJsonContent($jsonUrl);
     }
     
     
@@ -284,25 +284,18 @@ class commits extends \spouts\spout {
      * @param string $url URL
      * @return object JSON object
      */
-    public static function getJsonContent($url) {
-        $v = \F3::get('version');
-        $options  = array('http' => array(
-            'user_agent' => "Selfoss/$v GitHub spout (+http://selfoss.aditu.de)",
-            'ignore_errors' => true
-        ));
-        $context  = stream_context_create($options);
-
-        $content = file_get_contents($url, false, $context);
-        
-        if( $http_response_header[0] != 'HTTP/1.1 200 OK' ) {
-            \F3::get('logger')->log('github spout error ' . $http_response_header[0] . ': ' . substr($content, 0, 512), \ERROR);
-            return false;
+    public function getJsonContent($url) {
+        $content = null;
+        try {
+            $content = \helpers\WebClient::request($url);
+        }catch( \exception $e ) {
+            throw new \exception('github spout error ' . $e->getMessage());
         }
-        
+
         $json = @json_decode($content);
         
         if (empty($json)) {
-            return false;
+            throw new \exception('github spout error: empy json');
         }
         
         return $json;

@@ -11,17 +11,51 @@
     
     <div class="source-title"><?PHP echo isset($this->source) ? $this->source['title'] : \F3::get('lang_source_new') ; ?></div>
     
-    <div class="source-edit-delete"><span class="source-showparams"><?PHP echo \F3::get('lang_source_edit')?></span> &bull; <span class="source-delete"><?PHP echo \F3::get('lang_source_delete')?></span></div>
+    <div class="source-edit-delete"><span class="source-showparams"><?PHP echo \F3::get('lang_source_edit')?>
+        </span> &bull; <span class="source-delete"><?PHP echo \F3::get('lang_source_delete') ?></span>
+    </div>
+        
+    <div class="source-days">
+        <?php        
+        if (isset($this->source)) {
+        	
+        	if (isset($this->source['lastentry'])) {  
+        		echo '&bull; ' . \F3::get('lang_source_last_post') . ' ';
+        		
+        		// Get number of days between now and when the last entry was seen
+        		// Note: The time of the two dates is set to midnight (0,0,0)
+        		// to get the difference of the two dates in calendar days
+        		// instead of a day equaling any 24 hour period which makes it 
+        		// impossible to distinguish today and yesterday.
+        		$old = new DateTime();
+        		$old->setTimestamp($this->source['lastentry']);
+        		$old->setTime(0,0,0);
+        		$now = new DateTime();
+        		$now->setTime(0,0,0);      		
+        		$diff = $now->diff($old);      		
+        		echo \F3::get('lang_days', $diff->format('%a'));
+        	}
+        }
+        else {
+        	\F3::get('lang_source_new'); 
+        }
+        ?>
+    </div>
+        
 
     <!-- edit -->
     <ul class="source-edit-form">
         <!-- title -->
         <li><label><?PHP echo \F3::get('lang_source_title')?>:</label> <input type="text" name="title" value="<?PHP echo isset($this->source) ? $this->source['title'] : '' ; ?>" placeholder="<?PHP echo F3::get('lang_source_new'); ?>" /></li>
         
+
         <!-- tags -->
         <li><label><?PHP echo \F3::get('lang_source_tags');?>:</label>
             <input type="text" name="tags" value="<?PHP echo isset($this->source) ? $this->source['tags'] : ''; ?>" /> <span class="source-edit-form-help"> <?PHP echo \F3::get('lang_source_comma')?></span>
         </li>
+
+        <!-- filter -->
+        <li><label><?PHP echo \F3::get('lang_source_filter')?>:</label> <input type="text" name="filter" value="<?PHP echo isset($this->source) ? $this->source['filter'] : '' ; ?>" placeholder="<?PHP echo F3::get('lang_source_optional'); ?>" /></li>
         
         <!-- type -->
         <li><label><?PHP echo \F3::get('lang_source_type')?>:</label> 

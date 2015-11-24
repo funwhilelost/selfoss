@@ -25,58 +25,46 @@ selfoss.events.entriesToolbar = function(parent) {
         e.preventDefault();
         return false;
     });
-    
-    // share with google plus
-    parent.find('.entry-sharegoogle').unbind('click').click(function(e) {
-        window.open("https://plus.google.com/share?url="+encodeURIComponent($(this).parents(".entry").children(".entry-link").eq(0).attr("href")));
-        e.preventDefault();
+
+    // next item on smartphone
+    parent.find('.entry-toolbar .entry-next').unbind('click').click(function(e) {
+        selfoss.shortcuts.nextprev('next', true);
         return false;
     });
     
-    // share with twitter
-    parent.find('.entry-sharetwitter').unbind('click').click(function(e) {
-        window.open("https://twitter.com/intent/tweet?source=webclient&text="+encodeURIComponent($(this).parents(".entry").children(".entry-title").html())+" "+encodeURIComponent($(this).parents(".entry").children(".entry-link").eq(0).attr("href")));
-        e.preventDefault();
-        return false;
-    });
-    
-    // share with facebook
-    parent.find('.entry-sharefacebook').unbind('click').click(function(e) {
-        window.open("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent($(this).parents(".entry").children(".entry-link").eq(0).attr("href"))+"&t="+encodeURIComponent($(this).parents(".entry").children(".entry-title").html()));
-        e.preventDefault();
-        return false;
-    });
-    
-    // share with pocket
-    parent.find('.entry-sharepocket').unbind('click').click(function(e) {
-        window.open(" https://getpocket.com/save?url="+encodeURIComponent($(this).parents(".entry").children(".entry-link").eq(0).attr("href"))+"&title="+encodeURIComponent($(this).parents(".entry").children(".entry-title").html()));
-        e.preventDefault();
-        return false;
-    });
-  
-    // share with delicious
-    parent.find('.entry-sharedelicious').unbind('click').click(function(e) {
-        var href = $(this).parents(".entry").children(".entry-link").eq(0).attr("href");
-        var title = $(this).parents(".entry").children(".entry-title").html();
-        window.open("https://delicious.com/save?url="+encodeURIComponent(href)+"&title="+encodeURIComponent(title));
-        e.preventDefault();
+    // next item on tablet
+    parent.find('.entry-smartphone-share .entry-next').unbind('click').click(function(e) {
+        var $selected = $('.entry.selected, .entry.fullscreen:visible');
+        var id = $selected.attr('id').replace('entrr', 'entry');
+        $selected.find('.entry-unread.active').click();
+        $selected.find('.entry-title').click();
+        $("#" + id).next('.entry').find('.entry-title').click();
         return false;
     });
 
-    // share with readability
-    parent.find('.entry-sharereadability').unbind('click').click(function(e) {
-        window.open(" http://www.readability.com/save?url="+encodeURIComponent($(this).parents(".entry").children(".entry-link").eq(0).attr("href")));
-        e.preventDefault();
-        return false;
-    });
+    // configure shares
+    var shares = selfoss.shares.getAll();
+    if (shares.length > 0)
+    {
+        if (parent.find('ul.entry-toolbar').has('img.entry-share'+shares[0]).length == 0)
+        {
+            // add the share toolbar entries
+            parent.find('ul.entry-smartphone-share li.entry-newwindow').after(selfoss.shares.buildLinks(shares, function(name) { return '<li><span class="entry-share entry-share'+name+'" title="'+name+'"><img class="entry-share" title="'+name+'" src="images/'+name+'.png" height="16" width="16">'+name+'</span></li>'}));
+            parent.find('ul.entry-toolbar li.entry-next').after(selfoss.shares.buildLinks(shares, function(name) { return '<li><img class="entry-share entry-share'+name+'" title="'+name+'" src="images/'+name+'.png" height="16" width="16"></li>'}));
+            // hookup the share icon click events
+            for (var i = 0; i < shares.length; i++) {
+                (function(share){
+                    parent.find('.entry-share' + share).unbind('click').click(function(e) {
+                        var entry = $(this).parents(".entry");
+                        selfoss.shares.share(share, entry.children(".entry-link").eq(0).attr("href"), entry.children(".entry-title").html());
+                        e.preventDefault();
+                        return false;
+                    });
+                })(shares[i]);
+            }
+        }
+    }
 
-    // share with e-mail
-    parent.find('.entry-shareemail').unbind('click').click(function(e) {
-        document.location.href = "mailto:?body="+encodeURIComponent($(this).parents(".entry").children(".entry-link").eq(0).attr("href"))+"&subject="+encodeURIComponent($(this).parents(".entry").children(".entry-title").html());
-        e.preventDefault();
-        return false;
-    });
-    
     // only loggedin users
     if($('body').hasClass('loggedin')==true) {
         // starr/unstarr
@@ -112,12 +100,14 @@ selfoss.events.entriesToolbar = function(parent) {
             
             $.ajax({
                 url: $('base').attr('href') + (starr ? 'starr/' : 'unstarr/') + id,
+                data: { ajax: true },
                 type: 'POST',
                 error: function(jqXHR, textStatus, errorThrown) {
                     // rollback ui changes
                     setButton(!starr);
                     updateStats(!starr);
-                    selfoss.showError('Can not star/unstar item: '+errorThrown); 
+                    selfoss.showError('Can not star/unstar item: '+
+                                      textStatus+' '+errorThrown);
                 }
             });
             
@@ -154,10 +144,7 @@ selfoss.events.entriesToolbar = function(parent) {
                 } else {
                     unreadstats++;
                 }
-                $('.nav-filter-unread span').html(unreadstats);
-                $('.nav-filter-unread span').removeClass('unread');
-                if(unreadstats>0)
-                    $('.nav-filter-unread span').addClass('unread');
+                selfoss.refreshUnread(unreadstats);
                     
                 // update unread count on sources
                 var sourceId = $('#entry'+id+' .entry-source').attr('class').substr(25);
@@ -208,7 +195,8 @@ selfoss.events.entriesToolbar = function(parent) {
                     // rollback ui changes
                     updateStats(!unread);
                     setButton(!unread);
-                    selfoss.showError('Can not mark/unmark item: '+errorThrown); 
+                    selfoss.showError('Can not mark/unmark item: '+
+                                      textStatus+' '+errorThrown);
                 }
             });
             

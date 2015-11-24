@@ -56,8 +56,8 @@ abstract class spout implements \Iterator {
      * @var bool|mixed
      */
     public $params = false;
-    
-    
+
+
     /**
      * loads content for given source
      *
@@ -145,6 +145,15 @@ abstract class spout implements \Iterator {
      */
     abstract public function getDate();
     
+
+    /**
+     * returns the author of this item
+     * @return string author
+     */
+    public function getAuthor() {
+        return null;
+    }
+
     
     /**
      * destroy the plugin (prevent memory issues)

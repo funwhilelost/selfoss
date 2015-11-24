@@ -19,6 +19,8 @@ class Tags extends BaseController {
      * @return void
      */
     public function tagslist() {
+        $this->needsLoggedInOrPublicMode();
+
         echo $this->tagsListAsString();
     }
     
@@ -31,7 +33,7 @@ class Tags extends BaseController {
      */
     public function tagsListAsString() {
         $tagsDao = new \daos\Tags();
-        return $this->renderTags($tagsDao->get());
+        return $this->renderTags($tagsDao->getWithUnread());
     }
     
     
@@ -43,11 +45,10 @@ class Tags extends BaseController {
      */
     public function renderTags($tags) {
         $html = "";
-        $itemsDao = new \daos\Items();
         foreach($tags as $tag) {
             $this->view->tag = $tag['tag'];
             $this->view->color = $tag['color'];
-            $this->view->unread = $itemsDao->numberOfUnreadForTag($tag['tag']);
+            $this->view->unread = $tag['unread'];
             $html .= $this->view->render('templates/tag.phtml');
         }
         
@@ -61,6 +62,7 @@ class Tags extends BaseController {
      * @return void
      */
     public function color() {
+        $this->needsLoggedIn();
     
         // read data
         parse_str(\F3::get('BODY'),$data);
@@ -88,13 +90,11 @@ class Tags extends BaseController {
      * @return void
      */
     public function listTags() {
+        $this->needsLoggedInOrPublicMode();
+
         $tagsDao = new \daos\Tags();
-        $tags = $tagsDao->get();
-        
-        $itemsDao = new \daos\Items();
-        for($i=0; $i<count($tags); $i++)
-            $tags[$i]['unread'] = $itemsDao->numberOfUnreadForTag($tags[$i]['tag']);
-        
+        $tags = $tagsDao->getWithUnread();
+
         $this->view->jsonSuccess($tags);
     }
 }

@@ -4,7 +4,7 @@
 
     <meta charset="utf-8">
 
-    <title>selfoss</title>
+    <title><?PHP echo trim(\F3::get('html_title')); echo $this->statsUnread>0 ? ' ('.$this->statsUnread.')' : ''; ?></title>
     
     <meta name="description" content="selfoss" />
     <meta name="author" content="Tobias Zeising" />
@@ -18,6 +18,19 @@
     
     <!-- app 'behaviour' when adding link to iDevice springboard -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    
+    <!-- app 'behaviour' when adding link to Android Home  -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- app tile and notification when adding link to Windows 8 start screen -->
+    <meta name="application-name" content="Selfoss" />
+    <meta name="msapplication-TileColor" content="#3d6d69" />
+    <meta name="msapplication-square70x70logo" content="<?php echo $this->base; ?>win8-70-icon.png" />
+    <meta name="msapplication-square150x150logo" content="<?php echo $this->base; ?>win8-150-icon.png" />
+    <meta name="msapplication-wide310x150logo" content="<?php echo $this->base; ?>win8-150-icon.png" />
+    <meta name="msapplication-square310x310logo" content="<?php echo $this->base; ?>win8-310-icon.png" />
+    <meta name="msapplication-notification" content="cycle=1; frequency=30; polling-uri=<?php echo $this->base; ?>win8notifs" />
+    <meta name="msapplication-badge" content="frequency=30; polling-uri=<?php echo $this->base; ?>badge" />
 
     <!--  RSS Feed -->
     <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="feed" />
@@ -29,7 +42,7 @@
     <?PHP if(\F3::get('use_system_font')!=true) : ?>
         <link rel="stylesheet" href="css/fonts.css" />
     <?PHP endif; ?>
-    <link rel="stylesheet" href="all.css" />
+    <link rel="stylesheet" href="<?PHP echo \helpers\View::getGlobalCssFileName(); ?>" />
 
 </head>
 <body class="
@@ -53,12 +66,19 @@
     <!-- other settings -->
     <span id="config"
         data-anonymizer="<?PHP echo \helpers\Anonymizer::getAnonymizer(); ?>"
+        data-share="<?PHP echo \F3::get('share'); ?>"
+        data-wallabag="<?PHP echo \F3::get('wallabag'); ?>"
+        data-wordpress="<?PHP echo \F3::get('wordpress'); ?>"
         data-auto_mark_as_read="<?PHP echo \F3::get('auto_mark_as_read'); ?>"
-        data-load_images_on_mobile="<?PHP echo \F3::get('load_images_on_mobile'); ?>"></span>
+        data-auto_stream_more="<?PHP echo \F3::get('auto_stream_more'); ?>"
+        data-load_images_on_mobile="<?PHP echo \F3::get('load_images_on_mobile'); ?>"
+        data-items_perpage="<?PHP echo \F3::get('items_perpage'); ?>"
+        data-auto_hide_read_on_mobile="<?PHP echo \F3::get('auto_hide_read_on_mobile'); ?>"
+        data-html_title="<?PHP echo trim(\F3::get('html_title')); ?>"></span>
 
     <!-- menue open for smartphone -->
     <div id="nav-mobile">
-        <div id="nav-mobile-logo"></div>
+        <div id="nav-mobile-logo"><span class="unread-count<?PHP echo $this->statsUnread>0 ? ' unread' : ''; ?>"><?PHP echo $this->statsUnread; ?></span></div>
         <div id="nav-mobile-settings"></div>
     </div>
     
@@ -70,7 +90,7 @@
         <?PHP $active = (\F3::get('homepage')) ? \F3::get('homepage') : 'newest' ?>
         <ul id="nav-filter">
             <li id="nav-filter-newest" class="nav-filter-newest<?PHP if($active=='newest') : ?> active<?PHP endif; ?>"><?PHP echo \F3::get('lang_newest')?> <span><?PHP echo $this->statsAll; ?></span></li>
-            <li id="nav-filter-unread" class="nav-filter-unread<?PHP if($active=='unread') : ?> active<?PHP endif; ?>"><?PHP echo \F3::get('lang_unread')?> <span <?PHP echo $this->statsUnread>0 ? 'class="unread"' : ''; ?>><?PHP echo $this->statsUnread; ?></span></li>
+            <li id="nav-filter-unread" class="nav-filter-unread<?PHP if($active=='unread') : ?> active<?PHP endif; ?>"><?PHP echo \F3::get('lang_unread')?> <span class="unread-count<?PHP echo $this->statsUnread>0 ? ' unread' : ''; ?>"><?PHP echo $this->statsUnread; ?></span></li>
             <li id="nav-filter-starred" class="nav-filter-starred<?PHP if($active=='starred') : ?> active<?PHP endif; ?>"><?PHP echo \F3::get('lang_starred') ?> <span><?PHP echo $this->statsStarred; ?></span></li>
         </ul>
         
@@ -96,16 +116,19 @@
             <hr>
         </div>
         
-        <?PHP if($this->loggedin===true) : ?>
-        <div id="nav-settings" <?PHP if(\F3::get('auth')->enabled()===false) : ?>class="nologin"<?PHP endif; ?>></div>
+        <?PHP if($this->loggedin===true && \F3::get('auth')->enabled()===false) : ?>
+        <div id="nav-refresh" title="<?PHP echo trim(\F3::get('lang_refreshbutton')); ?>" class="nologin"></div>
+        <div id="nav-settings" title="<?PHP echo trim(\F3::get('lang_settingsbutton')); ?>" class="nologin"></div>
         <?PHP endif; ?>
         
         <?PHP if($this->loggedin===true && \F3::get('auth')->enabled()===true) : ?>
-        <div id="nav-logout"></div>
+        <div id="nav-refresh" title="<?PHP echo trim(\F3::get('lang_refreshbutton')); ?>"></div>
+        <div id="nav-settings" title="<?PHP echo trim(\F3::get('lang_settingsbutton')); ?>"></div>
+        <div id="nav-logout" title="<?PHP echo trim(\F3::get('lang_logoutbutton')); ?>"></div>
         <?PHP endif; ?>
         
         <?PHP if($this->loggedin===false) : ?>
-        <div id="nav-login"></div>
+        <div id="nav-login" title="<?PHP echo trim(\F3::get('lang_loginbutton')); ?>"></div>
         <?PHP endif; ?>
         
         <a id="nav-copyright" href="http://selfoss.aditu.de" target="_blank">selfoss <?PHP echo \F3::get('version'); ?></a>
@@ -127,9 +150,11 @@
         <?PHP echo $this->content; ?>
     </div>
     
+    <div class="stream-error"><?PHP echo trim(\F3::get('lang_streamerror')); ?></div>
+
     <!-- fullscreen popup -->
     <div id="fullscreen-entry"></div>
     
-    <script src="all.js"></script>
+    <script src="<?PHP echo \helpers\View::getGlobalJsFileName(); ?>"></script>
 </body>
 </html>

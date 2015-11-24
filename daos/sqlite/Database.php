@@ -35,7 +35,7 @@ class Database {
                 touch($db_file);
             }
             
-            // establish database connection
+            \F3::get('logger')->log("Establish database connection", \DEBUG);
             \F3::set('db', new \DB\SQL(
                     'sqlite:' . $db_file
                 )
@@ -61,7 +61,9 @@ class Database {
                         starred     BOOL NOT NULL,
                         source      INT NOT NULL,
                         uid         VARCHAR(255) NOT NULL,
-                        link        TEXT NOT NULL
+                        link        TEXT NOT NULL,
+                        updatetime  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        author      VARCHAR(255)
                     );
                 ');
                 
@@ -70,6 +72,15 @@ class Database {
                         source
                     );
                 ');
+                \F3::get('db')->exec('
+                    CREATE TRIGGER update_updatetime_trigger
+                    AFTER UPDATE ON items FOR EACH ROW
+                        BEGIN
+                            UPDATE items
+                            SET updatetime = CURRENT_TIMESTAMP
+                            WHERE id = NEW.id;
+                        END;
+                 ');
             }
             
             $isNewestSourcesTable = false;
@@ -81,8 +92,10 @@ class Database {
                         tags        TEXT,
                         spout       TEXT NOT NULL,
                         params      TEXT NOT NULL,
+                        filter      TEXT,
                         error       TEXT,
-                        lastupdate  INTEGER
+                        lastupdate  INTEGER,
+                		lastentry   INTEGER
                     );
                 ');
                 $isNewestSourcesTable = true;
@@ -97,7 +110,7 @@ class Database {
                 ');
                 
                 \F3::get('db')->exec('
-                    INSERT INTO version (version) VALUES (3);
+                    INSERT INTO version (version) VALUES (8);
                 ');
                 
                 \F3::get('db')->exec('
@@ -117,7 +130,7 @@ class Database {
                 $version = @\F3::get('db')->exec('SELECT version FROM version ORDER BY version DESC LIMIT 0, 1');
                 $version = $version[0]['version'];
 
-                if($version == "2"){
+                if(strnatcmp($version, "3") < 0){
                     \F3::get('db')->exec('
                         ALTER TABLE sources ADD lastupdate INT;
                     ');
@@ -125,10 +138,65 @@ class Database {
                         INSERT INTO version (version) VALUES (3);
                     ');
                 }
+                if(strnatcmp($version, "4") < 0){
+                    \F3::get('db')->exec('
+                        ALTER TABLE items ADD updatetime DATETIME;
+                    ');
+                    \F3::get('db')->exec('
+                        CREATE TRIGGER insert_updatetime_trigger
+                        AFTER INSERT ON items FOR EACH ROW
+                            BEGIN
+                                UPDATE items
+                                SET updatetime = CURRENT_TIMESTAMP
+                                WHERE id = NEW.id;
+                            END;
+                    ');
+                    \F3::get('db')->exec('
+                        CREATE TRIGGER update_updatetime_trigger
+                        AFTER UPDATE ON items FOR EACH ROW
+                            BEGIN
+                                UPDATE items
+                                SET updatetime = CURRENT_TIMESTAMP
+                                WHERE id = NEW.id;
+                            END;
+                    ');
+                    \F3::get('db')->exec('
+                        INSERT INTO version (version) VALUES (4);
+                    ');
+                }
+                if(strnatcmp($version, "5") < 0){
+                    \F3::get('db')->exec('
+                        ALTER TABLE items ADD author VARCHAR(255);
+                    ');
+                    \F3::get('db')->exec('
+                        INSERT INTO version (version) VALUES (5);
+                    ');
+                }
+                if(strnatcmp($version, "6") < 0){
+                    \F3::get('db')->exec('
+                        ALTER TABLE sources ADD filter TEXT;
+                    ');
+                    \F3::get('db')->exec('
+                        INSERT INTO version (version) VALUES (6);
+                    ');
+                }
+                // Jump straight from v6 to v8 due to bug in previous version of the code 
+                // in /daos/sqlite/Database.php which 
+                // set the database version to "7" for initial installs.
+                if(strnatcmp($version, "8") < 0){
+                	\F3::get('db')->exec('
+                        ALTER TABLE sources ADD lastentry INT;
+                    ');
+                	\F3::get('db')->exec('
+                        INSERT INTO version (version) VALUES (8);
+                    ');
+
+                	$this->initLastEntryFieldDuringUpgrade();
+                }
             }
             
             // just initialize once
-            $initialized = true;
+            self::$initialized = true;
         }
     }
     
@@ -143,4 +211,27 @@ class Database {
             VACUUM;
         ');
     }
+    
+    /**
+     * Initialize 'lastentry' Field in Source table during database upgrade
+     *
+     * @return void
+     */
+    private function initLastEntryFieldDuringUpgrade() { 	
+    	$sources = @\F3::get('db')->exec('SELECT id FROM sources');
+   
+    	// have a look at each entry in the source table
+    	foreach($sources as $current_src) {
+    		//get the date of the newest entry found in the database   		
+    		$latestEntryDate = @\F3::get('db')->exec('SELECT datetime FROM items WHERE source=' . 
+    				                              $current_src['id'] . ' ORDER BY datetime DESC LIMIT 0, 1');
+    		
+    		//if an entry for this source was found in the database, write the date of the newest one into the sources table 
+            if (isset ($latestEntryDate[0]['datetime']))
+            	@\F3::get('db')->exec('UPDATE sources SET lastentry=' . strtotime($latestEntryDate[0]['datetime']) . 
+            			              ' WHERE id=' . $current_src['id']);          	 
+    	}
+
+    }
+    
 }

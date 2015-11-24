@@ -1,7 +1,7 @@
 <?php
 
 /*
-	Copyright (c) 2009-2013 F3::Factory/Bong Cosca, All rights reserved.
+	Copyright (c) 2009-2014 F3::Factory/Bong Cosca, All rights reserved.
 
 	This file is part of the Fat-Free Framework (http://fatfree.sf.net).
 
@@ -21,7 +21,7 @@ class Web extends Prefab {
 		E_Request='No suitable HTTP request engine found';
 	//@}
 
-	private
+	protected
 		//! HTTP request engine
 		$wrapper;
 
@@ -194,10 +194,10 @@ class Web extends Prefab {
 			);
 			return (!file_exists($file['name']) || $overwrite) &&
 				(!$func || $fw->call($func,array($file))!==FALSE) &&
-				$fw->write($file['name'],$fw->read($tmp));
+				rename($tmp,$file['name']);
 		}
 		$out=array();
-		foreach ($_FILES as $item) {
+		foreach ($_FILES as $name=>$item) {
 			if (is_array($item['name'])) {
 				// Transpose array
 				$tmp=array();
@@ -215,14 +215,14 @@ class Web extends Prefab {
 				$file['name']=$dir.
 					($slug && preg_match('/(.+?)(\.\w+)?$/',$base,$parts)?
 						(is_callable($slug)?
-							$slug($base):
+							$slug($base,$name):
 							($this->slug($parts[1]).
 								(isset($parts[2])?$parts[2]:''))):
 						$base);
 				$out[$file['name']]=!$file['error'] &&
 					is_uploaded_file($file['tmp_name']) &&
 					(!file_exists($file['name']) || $overwrite) &&
-					(!$func || $fw->call($func,array($file))!==FALSE) &&
+					(!$func || $fw->call($func,array($file,$name))!==FALSE) &&
 					move_uploaded_file($file['tmp_name'],$file['name']);
 			}
 		}
@@ -249,15 +249,16 @@ class Web extends Prefab {
 	**/
 	protected function _curl($url,$options) {
 		$curl=curl_init($url);
-		curl_setopt($curl,CURLOPT_FOLLOWLOCATION,
-			$options['follow_location']);
+		if (!ini_get('open_basedir'))
+			curl_setopt($curl,CURLOPT_FOLLOWLOCATION,
+				$options['follow_location']);
 		curl_setopt($curl,CURLOPT_MAXREDIRS,
 			$options['max_redirects']);
+		curl_setopt($curl,CURLOPT_PROTOCOLS,CURLPROTO_HTTP|CURLPROTO_HTTPS);
+		curl_setopt($curl,CURLOPT_REDIR_PROTOCOLS,CURLPROTO_HTTP|CURLPROTO_HTTPS);
 		curl_setopt($curl,CURLOPT_CUSTOMREQUEST,$options['method']);
 		if (isset($options['header']))
 			curl_setopt($curl,CURLOPT_HTTPHEADER,$options['header']);
-		if (isset($options['user_agent']))
-			curl_setopt($curl,CURLOPT_USERAGENT,$options['user_agent']);
 		if (isset($options['content']))
 			curl_setopt($curl,CURLOPT_POSTFIELDS,$options['content']);
 		curl_setopt($curl,CURLOPT_ENCODING,'gzip,deflate');
@@ -280,6 +281,11 @@ class Web extends Prefab {
 		curl_exec($curl);
 		curl_close($curl);
 		$body=ob_get_clean();
+		if ($options['follow_location'] &&
+			preg_match('/^Location: (.+)$/m',implode(PHP_EOL,$headers),$loc)) {
+			$options['max_redirects']--;
+			return $this->request($loc[1],$options);
+		}
 		return array(
 			'body'=>$body,
 			'headers'=>$headers,
@@ -470,7 +476,9 @@ class Web extends Prefab {
 		$this->subst($options['header'],
 			array(
 				'Accept-Encoding: gzip,deflate',
-				'User-Agent: Mozilla/5.0 (compatible; '.php_uname('s').')',
+				'User-Agent: '.(isset($options['user_agent'])?
+					$options['user_agent']:
+					'Mozilla/5.0 (compatible; '.php_uname('s').')'),
 				'Connection: close'
 			)
 		);
@@ -723,7 +731,6 @@ class Web extends Prefab {
 	function slug($text) {
 		return trim(strtolower(preg_replace('/([^\pL\pN])+/u','-',
 			trim(strtr(str_replace('\'','',$text),
-			Base::instance()->get('DIACRITICS')+
 			array(
 				'Ǎ'=>'A','А'=>'A','Ā'=>'A','Ă'=>'A','Ą'=>'A','Å'=>'A',
 				'Ǻ'=>'A','Ä'=>'Ae','Á'=>'A','À'=>'A','Ã'=>'A','Â'=>'A',
@@ -772,7 +779,7 @@ class Web extends Prefab {
 				'ǜ'=>'u','ǔ'=>'u','ǖ'=>'u','ũ'=>'u','ü'=>'ue','в'=>'v',
 				'ŵ'=>'w','ы'=>'y','ÿ'=>'y','ý'=>'y','ŷ'=>'y','ź'=>'z',
 				'ž'=>'z','з'=>'z','ż'=>'z','ж'=>'zh'
-			))))),'-');
+			)+Base::instance()->get('DIACRITICS'))))),'-');
 	}
 
 	/**

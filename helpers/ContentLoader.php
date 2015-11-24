@@ -58,6 +58,13 @@ class ContentLoader {
      */
     public function fetch($source) {
         
+    	$lastEntry = $source['lastentry'];
+    	
+        // at least 20 seconds wait until next update of a given source
+        $this->updateSource($source, null);
+        if(time() - $source['lastupdate'] < 20)
+            return;
+        
         @set_time_limit(5000);
         @error_reporting(E_ERROR);
         
@@ -123,20 +130,36 @@ class ContentLoader {
             // insert new item
             \F3::get('logger')->log('start insertion of new item "'.$item->getTitle().'"', \DEBUG);
             
-            // sanitize content html
-            $content = $this->sanitizeContent($item->getContent());
+            $content = "";
+            try {
+                // fetch content
+                $content = $item->getContent();
+                
+                // sanitize content html
+                $content = $this->sanitizeContent($content);
+            } catch(\exception $e) {
+                $content = 'Error: Content not fetched. Reason: ' . $e->getMessage();
+                \F3::get('logger')->log('Can not fetch "'.$item->getTitle().'" : ' . $e->getMessage(), \ERROR);
+            }
 
             // sanitize title
-            $title = htmlspecialchars_decode($item->getTitle());
-            $title = htmLawed($title, array("deny_attribute" => "*", "elements" => "-*"));
+            $title = $this->sanitizeField($item->getTitle());
             if(strlen(trim($title))==0)
                 $title = "[" . \F3::get('lang_no_title') . "]";
+
+            // Check sanitized title against filter
+            if($this->filter($source, $title, $content)===false)
+                continue;
+
+            // sanitize author
+            $author = $this->sanitizeField($item->getAuthor());
 
             \F3::get('logger')->log('item content sanitized', \DEBUG);
 
             try {
                 $icon = $item->getIcon();
             } catch(\exception $e) {
+                \F3::get('logger')->log('icon: error ' . $e->getMessage(), \DEBUG);
                 return;
             }
 
@@ -148,7 +171,8 @@ class ContentLoader {
                     'uid'          => $item->getId(),
                     'thumbnail'    => $item->getThumbnail(),
                     'icon'         => $icon!==false ? $icon : "",
-                    'link'         => htmLawed($item->getLink(), array("deny_attribute" => "*", "elements" => "-*"))
+                    'link'         => htmLawed($item->getLink(), array("deny_attribute" => "*", "elements" => "-*")),
+                    'author'       => $author
             );
             
             // save thumbnail
@@ -163,6 +187,8 @@ class ContentLoader {
             
             \F3::get('logger')->log('Memory usage: '.memory_get_usage(), \DEBUG);
             \F3::get('logger')->log('Memory peak usage: '.memory_get_peak_usage(), \DEBUG);
+            
+            $lastEntry = max($lastEntry, $itemDate->getTimestamp());
         }
     
         // destroy feed object (prevent memory issues)
@@ -170,9 +196,29 @@ class ContentLoader {
         $spout->destroy();
 
         // remove previous errors and set last update timestamp
-        $this->updateSource($source);
+        $this->updateSource($source, $lastEntry);
     }
 
+    /**
+     * Check if a new item matches the filter
+     *
+     * @param $feed object and new item to add
+     * @return boolean indicating filter success
+     */
+    protected function filter($source, $title,$content) {
+        if(strlen(trim($source['filter']))!=0) {
+            $resultTitle = @preg_match($source['filter'], $title);
+            $resultContent = @preg_match($source['filter'], $content);
+            if($resultTitle===false || $resultContent===false) {
+               \F3::get('logger')->log('filter error: ' . $source['filter'], \ERROR);
+                return true; // do not filter out item
+            }
+            // test filter
+            if($resultTitle==0 && $resultContent==0)
+                return false;
+        }
+        return true;
+    }
 
     /**
      * Sanitize content for preventing XSS attacks.
@@ -182,18 +228,33 @@ class ContentLoader {
      */
     protected function sanitizeContent($content) {
         return htmLawed(
-            htmlspecialchars_decode($content),
+            $content,
             array(
                 "safe"           => 1,
-                "deny_attribute" => '* -alt -title -src -href',
+                "deny_attribute" => '* -alt -title -src -href -target -width -height, img +width +height',
                 "keep_bad"       => 0,
                 "comment"        => 1,
                 "cdata"          => 1,
-                "elements"       => 'div,p,ul,li,a,img,dl,dt,dd,h1,h2,h3,h4,h5,h6,ol,br,table,tr,td,blockquote,pre,ins,del,th,thead,tbody,b,i,strong,em,tt'
+                "elements"       => 'div,p,ul,li,a,img,dl,dt,dd,h1,h2,h3,h4,h5,h6,ol,br,table,tr,td,blockquote,pre,ins,del,th,thead,tbody,b,i,strong,em,tt,sub,sup,s,strike,code'
             )
         );
     }
 
+    /**
+     * Sanitize a simple field
+     *
+     * @param $value content of the given field
+     * @return mixed|string sanitized content
+     */
+    protected function sanitizeField($value) {
+        return htmLawed(
+            htmlspecialchars_decode($value),
+            array(
+                "deny_attribute" => '* -href -title -target',
+                "elements"       => 'a,br,ins,del,b,i,strong,em,tt,sub,sup,s,code'
+            )
+        );
+    }
 
     /**
      * Fetch the thumbanil of a given item
@@ -204,14 +265,15 @@ class ContentLoader {
      */
     protected function fetchThumbnail($thumbnail, $newItem) {
         if (strlen(trim($thumbnail)) > 0) {
+            $extension = 'jpg';
             $imageHelper = new \helpers\Image();
-            $thumbnailAsPng = $imageHelper->loadImage($thumbnail, 150, 150);
-            if ($thumbnailAsPng !== false) {
+            $thumbnailAsJpg = $imageHelper->loadImage($thumbnail, $extension, 500, 500);
+            if ($thumbnailAsJpg !== false) {
                 file_put_contents(
-                    'data/thumbnails/' . md5($thumbnail) . '.png',
-                    $thumbnailAsPng
+                    'data/thumbnails/' . md5($thumbnail) . '.' . $extension,
+                    $thumbnailAsJpg
                 );
-                $newItem['thumbnail'] = md5($thumbnail) . '.png';
+                $newItem['thumbnail'] = md5($thumbnail) . '.' . $extension;
                 \F3::get('logger')->log('thumbnail generated: ' . $thumbnail, \DEBUG);
             } else {
                 $newItem['thumbnail'] = '';
@@ -233,18 +295,19 @@ class ContentLoader {
      */
     protected function fetchIcon($icon, $newItem, &$lasticon) {
         if(strlen(trim($icon)) > 0) {
+            $extension = 'png';
             if($icon==$lasticon) {
                 \F3::get('logger')->log('use last icon: '.$lasticon, \DEBUG);
-                $newItem['icon'] = md5($lasticon) . '.png';
+                $newItem['icon'] = md5($lasticon) . '.' . $extension;
             } else {
                 $imageHelper = new \helpers\Image();
-                $iconAsPng = $imageHelper->loadImage($icon, 30, 30);
+                $iconAsPng = $imageHelper->loadImage($icon, $extension, 30, null);
                 if($iconAsPng!==false) {
                     file_put_contents(
-                        'data/favicons/' . md5($icon) . '.png',
+                        'data/favicons/' . md5($icon) . '.' . $extension,
                         $iconAsPng
                     );
-                    $newItem['icon'] = md5($icon) . '.png';
+                    $newItem['icon'] = md5($icon) . '.' . $extension;
                     $lasticon = $icon;
                     \F3::get('logger')->log('icon generated: '.$icon, \DEBUG);
                 } else {
@@ -316,14 +379,15 @@ class ContentLoader {
     /**
      * Update source (remove previous errors, update last update)
      *
-     * @param $source source object
+     * @param mixed $source source object
+     * @param int $lastEntry timestamp of the newest item or NULL when no items were added
      */
-    protected function updateSource($source) {
+    protected function updateSource($source, $lastEntry) {
         // remove previous error
-        if (strlen(trim($source['error'])) != 0) {
+        if ( !is_null($source['error']) ) {
             $this->sourceDao->error($source['id'], '');
         }
         // save last update
-        $this->sourceDao->saveLastUpdate($source['id']);
+        $this->sourceDao->saveLastUpdate($source['id'], $lastEntry);
     }
 }

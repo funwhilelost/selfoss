@@ -35,7 +35,7 @@ class Database {
      */
     public function __construct() {
         if (self::$initialized === false && \F3::get('db_type')=="pgsql") {
-            // establish database connection
+            \F3::get('logger')->log("Establish database connection", \DEBUG);
             \F3::set('db', new \DB\SQL(
                 'pgsql:host=' . \F3::get('db_host') . ';port=' . \F3::get('db_port') . ';dbname='.\F3::get('db_database'),
                 \F3::get('db_username'),
@@ -62,14 +62,29 @@ class Database {
                         starred     BOOLEAN NOT NULL,
                         source      INTEGER NOT NULL,
                         uid         TEXT NOT NULL,
-                        link        TEXT NOT NULL
+                        link        TEXT NOT NULL,
+                        updatetime  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        author      TEXT
                     );
                 ');
-                
                 \F3::get('db')->exec('
                     CREATE INDEX source ON items (
                         source
                     );
+                ');
+                \F3::get('db')->exec('
+                    CREATE OR REPLACE FUNCTION update_updatetime_procedure()
+                    RETURNS TRIGGER AS $$
+                        BEGIN
+                            NEW.updatetime = NOW();
+                            RETURN NEW;
+                        END;
+                    $$ LANGUAGE "plpgsql";
+                ');
+                \F3::get('db')->exec('
+                    CREATE TRIGGER update_updatetime_trigger
+                    BEFORE UPDATE ON items FOR EACH ROW EXECUTE PROCEDURE
+                    update_updatetime_procedure();
                 ');
             }
             
@@ -80,10 +95,12 @@ class Database {
                         id          SERIAL PRIMARY KEY,
                         title       TEXT NOT NULL,
                         tags        TEXT,
+                        filter      TEXT,
                         spout       TEXT NOT NULL,
                         params      TEXT NOT NULL,
                         error       TEXT,
-                        lastupdate  INTEGER
+                        lastupdate  INTEGER,
+                		lastentry   INTEGER
                     );
                 ');
                 $isNewestSourcesTable = true;
@@ -98,7 +115,7 @@ class Database {
                 ');
                 
                 \F3::get('db')->exec('
-                    INSERT INTO version (version) VALUES (3);
+                    INSERT INTO version (version) VALUES (8);
                 ');
                 
                 \F3::get('db')->exec('
@@ -118,7 +135,7 @@ class Database {
                 $version = @\F3::get('db')->exec('SELECT version FROM version ORDER BY version DESC LIMIT 1');
                 $version = $version[0]['version'];
 
-                if($version == "2"){
+                if(strnatcmp($version, "3") < 0){
                     \F3::get('db')->exec('
                         ALTER TABLE sources ADD lastupdate INT;
                     ');
@@ -126,10 +143,58 @@ class Database {
                         INSERT INTO version (version) VALUES (3);
                     ');
                 }
+                if(strnatcmp($version, "4") < 0){
+                    \F3::get('db')->exec('
+                        ALTER TABLE items ADD updatetime TIMESTAMP WITH TIME ZONE;
+                    ');
+                    \F3::get('db')->exec('
+                        ALTER TABLE items ALTER COLUMN updatetime SET DEFAULT CURRENT_TIMESTAMP;
+                    ');
+                    \F3::get('db')->exec('
+                        CREATE OR REPLACE FUNCTION update_updatetime_procedure()
+                        RETURNS TRIGGER AS $$
+                            BEGIN
+                                NEW.updatetime = NOW();
+                                RETURN NEW;
+                            END;
+                        $$ LANGUAGE "plpgsql";
+                    ');
+                    \F3::get('db')->exec('
+                        CREATE TRIGGER update_updatetime_trigger
+                        BEFORE UPDATE ON items FOR EACH ROW EXECUTE PROCEDURE
+                        update_updatetime_procedure();
+                    ');
+                    \F3::get('db')->exec('
+                        INSERT INTO version (version) VALUES (4);
+                    ');
+                }
+                if(strnatcmp($version, "5") < 0){
+                    \F3::get('db')->exec('
+                        ALTER TABLE items ADD author TEXT;
+                    ');
+                    \F3::get('db')->exec('
+                        INSERT INTO version (version) VALUES (5);
+                    ');
+                }
+                if(strnatcmp($version, "6") < 0){
+                    \F3::get('db')->exec(array(
+                        'ALTER TABLE sources ADD filter TEXT;',
+                        'INSERT INTO version (version) VALUES (6);'
+                    ));
+                }
+                // Jump straight from v6 to v8 due to bug in previous version of the code
+                // in /daos/sqlite/Database.php which
+                // set the database version to "7" for initial installs.
+                if(strnatcmp($version, "8") < 0){
+                	\F3::get('db')->exec(array(
+                			'ALTER TABLE sources ADD lastentry INT;',
+                			'INSERT INTO version (version) VALUES (8);'
+                	));
+                }
             }
             
             // just initialize once
-            $initialized = true;
+            self::$initialized = true;
         }
     }
     
@@ -146,10 +211,6 @@ class Database {
      * @return  void
      */
     public function optimize() {
-        $result = @\F3::get('db')->exec("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
-        $tables = array();
-        foreach($result as $table)
-            foreach($table as $key=>$value)
-                @\F3::get('db')->exec("VACUUM ANALYZE :table", array(':table' => $value));
+        \F3::get('db')->exec("VACUUM ANALYZE");
     }
 }

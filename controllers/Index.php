@@ -37,7 +37,7 @@ class Index extends BaseController {
         
         // load tags
         $tagsDao = new \daos\Tags();
-        $tags = $tagsDao->get();
+        $tags = $tagsDao->getWithUnread();
         
         // load items
         $itemsHtml = $this->loadItems($options, $tags);
@@ -45,19 +45,23 @@ class Index extends BaseController {
         
         // load stats
         $itemsDao = new \daos\Items();
-        $this->view->statsAll = $itemsDao->numberOfItems();
-        $this->view->statsUnread = $itemsDao->numberOfUnread();
-        $this->view->statsStarred = $itemsDao->numberOfStarred();
+        $stats = $itemsDao->stats();
+        $this->view->statsAll = $stats['total'];
+        $this->view->statsUnread = $stats['unread'];
+        $this->view->statsStarred = $stats['starred'];
         
         // prepare tags display list
         $tagsController = new \controllers\Tags();
         $this->view->tags = $tagsController->renderTags($tags);
         
-        // prepare sources display list
-        $sourcesDao = new \daos\Sources();
-        $sources = $sourcesDao->get();
-        $sourcesController = new \controllers\Sources();
-        $this->view->sources = $sourcesController->renderSources($sources);
+        if(isset($options['sourcesNav']) && $options['sourcesNav'] == 'true' ) {
+            // prepare sources display list
+            $sourcesDao = new \daos\Sources();
+            $sources = $sourcesDao->getWithUnread();
+            $sourcesController = new \controllers\Sources();
+            $this->view->sources = $sourcesController->renderSources($sources);
+        } else
+            $this->view->sources = '';
         
         // ajax call = only send entries and statistics not full template
         if(isset($options['ajax'])) {
@@ -189,8 +193,22 @@ class Index extends BaseController {
         
         echo "finished";
     }
-    
-    
+
+    /*
+    * get the unread number of items for a windows 8 badge
+    * notification.
+    */
+    public function badge() {
+        // load stats
+        $itemsDao = new \daos\Items();
+        $this->view->statsUnread = $itemsDao->numberOfUnread();
+        echo $this->view->render('templates/badge.phtml');
+    }
+
+    public function win8Notifications() {
+        echo $this->view->render('templates/win8-notifications.phtml');
+    }
+
     /**
      * load items
      *
@@ -221,6 +239,7 @@ class Index extends BaseController {
         } else {
             if($itemDao->hasMore())
                 $itemsHtml .= '<div class="stream-more"><span>'. \F3::get('lang_more').'</span></div>';
+                $itemsHtml .= '<div class="mark-these-read"><span>'. \F3::get('lang_markread').'</span></div>';
         }
         
         return $itemsHtml;
@@ -235,8 +254,10 @@ class Index extends BaseController {
      */
     private function convertTagsToAssocArray($tags) {
         $assocTags = array();
-        foreach($tags as $tag)
-            $assocTags[$tag['tag']] = $tag['color'];
+        foreach($tags as $tag) {
+            $assocTags[$tag['tag']]['backColor'] = $tag['color'];
+            $assocTags[$tag['tag']]['foreColor'] = \helpers\Color::colorByBrightness($tag['color']);
+        }
         return $assocTags;
     }
 }
