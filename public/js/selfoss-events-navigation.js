@@ -24,8 +24,8 @@ selfoss.events.navigation = function() {
                     selfoss.reloadList();
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
-                    selfoss.showError('Can not save new color: '+
-                                      textStatus+' '+errorThrown);
+                    selfoss.ui.showError('Can not save new color: '+
+                                         textStatus+' '+errorThrown);
                 }
             });
             
@@ -40,15 +40,28 @@ selfoss.events.navigation = function() {
             selfoss.filter.type='unread';
         else if($(this).hasClass('nav-filter-starred'))
             selfoss.filter.type='starred';
-        
+
+        selfoss.events.reloadSamePath = true;
+        if (selfoss.events.lastSubsection == null)
+            selfoss.events.lastSubsection = 'all';
+        selfoss.events.setHash(selfoss.filter.type, 'same');
+
         $('#nav-filter > li').removeClass('active');
         $(this).addClass('active');
         
-        selfoss.filter.offset = 0;
-        selfoss.reloadList();
-        
-        if(selfoss.isSmartphone())
+        if(selfoss.isSmartphone() && $('#nav').is(':visible'))
             $('#nav-mobile-settings').click();
+    });
+    
+    // hide/show filters
+    $('#nav-filter-title').unbind('click').click(function () {
+        $('#nav-filter').slideToggle( "slow", function() {
+            selfoss.events.resize();
+        });
+        $('#nav-filter-title').toggleClass("nav-filter-collapsed nav-filter-expanded");
+        $('#nav-filter-title').attr('aria-expanded', function (i, attr) {
+            return attr == 'true' ? 'false' : 'true';
+        });
     });
     
     // tag
@@ -57,15 +70,14 @@ selfoss.events.navigation = function() {
         $('#nav-sources > li').removeClass('active');
         $(this).addClass('active');
         
-        selfoss.filter.source = '';
-        selfoss.filter.tag = '';
-        if($(this).hasClass('nav-tags-all')==false)
-            selfoss.filter.tag = $(this).find('span').html();
+        if($(this).hasClass('nav-tags-all')==false) {
+            selfoss.events.setHash(selfoss.filter.type,
+                                   'tag-' + $(this).find('span').html());
+        } else {
+            selfoss.events.setHash(selfoss.filter.type, 'all');
+        }
             
-        selfoss.filter.offset = 0;
-        selfoss.reloadList();
-        
-        if(selfoss.isSmartphone())
+        if(selfoss.isSmartphone() && $('#nav').is(':visible'))
             $('#nav-mobile-settings').click();
     });
     
@@ -73,6 +85,9 @@ selfoss.events.navigation = function() {
     $('#nav-tags-title').unbind('click').click(function () {
         $('#nav-tags').slideToggle("slow");
         $('#nav-tags-title').toggleClass("nav-tags-collapsed nav-tags-expanded");
+        $('#nav-tags-title').attr('aria-expanded', function (i, attr) {
+            return attr == 'true' ? 'false' : 'true';
+        });
     });
     
     // source
@@ -80,14 +95,11 @@ selfoss.events.navigation = function() {
         $('#nav-tags > li').removeClass('active');
         $('#nav-sources > li').removeClass('active');
         $(this).addClass('active');
+
+        selfoss.events.setHash(selfoss.filter.type,
+                               'source-' + $(this).attr('id').substr(6));
         
-        selfoss.filter.tag = '';
-        selfoss.filter.source = $(this).attr('id').substr(6);
-            
-        selfoss.filter.offset = 0;
-        selfoss.reloadList();
-        
-        if(selfoss.isSmartphone())
+        if(selfoss.isSmartphone() && $('#nav').is(':visible'))
             $('#nav-mobile-settings').click();
     });
     
@@ -96,28 +108,36 @@ selfoss.events.navigation = function() {
         var toggle = function () {
             $('#nav-sources').slideToggle("slow");
             $('#nav-sources-title').toggleClass("nav-sources-collapsed nav-sources-expanded");
+            $('#nav-sources-title').attr('aria-expanded', function (i, attr) {
+                return attr == 'true' ? 'false' : 'true';
+            });
         }
 
         selfoss.filter.sourcesNav = $('#nav-sources-title').hasClass("nav-sources-collapsed");
         if( selfoss.filter.sourcesNav && !selfoss.sourcesNavLoaded ) {
             $.ajax({
-                url: $('base').attr('href') + 'sources/stats',
+                url: $('base').attr('href') + 'sources/sourcesStats',
                 type: 'GET',
                 success: function(data) {
                     selfoss.refreshSources(data.sources);
-                    selfoss.sourcesNavLoaded = true;
-                    toggle();
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
-                    selfoss.showError('Can not load nav stats: '+
-                                    textStatus+' '+errorThrown);
+                    selfoss.ui.showError('Can not load nav stats: '+
+                                         textStatus+' '+errorThrown);
                 }
             });
         }else{
             toggle();
         }
     });
-    
+
+    // emulate clicking when using keyboard
+    $('#nav-filter > li, #nav-tags > li, #nav-tags-title, #nav-sources > li, #nav-sources-title').unbind('keypress').keypress(function (e) {
+        if(e.keyCode === 13) {
+            $(this).click();
+        }
+    });
+
     // show hide navigation for mobile version
     $('#nav-mobile-settings').unbind('click').click(function () {
         var nav = $('#nav');
@@ -125,16 +145,12 @@ selfoss.events.navigation = function() {
         // show
         if(nav.is(':visible')==false) {
             nav.slideDown(400, function() {
-                location.hash = "nav";
                 $(window).scrollTop(0);
             });
             
         // hide
         } else {
             nav.slideUp(400, function() {
-                if(location.hash=="#nav") {
-                    location.hash = "";
-                }
                 $(window).scrollTop(0);
             });
         }
@@ -143,11 +159,8 @@ selfoss.events.navigation = function() {
 
     // updates sources
     $('#nav-refresh').unbind('click').click(function () {
-        // show loading
-        var content = $('#content');
-        var articleList = content.html();
-        $('#content').addClass('loading').html("");
-          
+        $('#nav-refresh').addClass('loading');
+
         $.ajax({
             url: $('base').attr('href') + 'update',
             type: 'GET',
@@ -157,14 +170,23 @@ selfoss.events.navigation = function() {
                 // hide nav on smartphone
                 if(selfoss.isSmartphone())
                     $('#nav-mobile-settings').click();
-                    
-                // refresh list
-                 selfoss.reloadList();
+
+                // probe stats and prompt reload to the user
+                selfoss.sync(true).done(function() {
+                    var refreshed = 'Sources have been refreshed';
+                    if( $('.unread-count').hasClass('unread') ) {
+                        selfoss.ui.showMessage(refreshed, 'Reload list',
+                                               function() {
+                            $('#nav-filter-unread').click();
+                        });
+                    }
+                });
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                content.html(articleList);
-                $('#content').removeClass('loading');
-                alert('Can not refresh sources: ' + errorThrown);
+                selfoss.ui.showError('Cannot refresh sources: ' + errorThrown);
+            },
+            complete: function(data) {
+                $('#nav-refresh').removeClass('loading');
             }
         });
     });
@@ -180,7 +202,7 @@ selfoss.events.navigation = function() {
         
         // show sources
         $('#nav-settings').unbind('click').click(function () {
-            location.hash = "sources";
+            selfoss.events.setHash('sources', false);
             
             if(selfoss.isSmartphone())
                 $('#nav-mobile-settings').click();

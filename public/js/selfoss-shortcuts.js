@@ -97,7 +97,7 @@ selfoss.shortcuts = {
         
         // 'v': open target
         $(document).bind('keydown', 'v', function(e) {
-            window.open($('.entry.selected .entry-source').attr('href'));
+            window.open($('.entry.selected .entry-datetime').attr('href'));
             e.preventDefault();
             return false;
         });
@@ -114,13 +114,19 @@ selfoss.shortcuts = {
             }
             
             // open item in new window
-            $('.entry.selected .entry-source').click();
+            $('.entry.selected .entry-datetime').click();
         });
         
         // 'r': Reload the current view
         $(document).bind('keydown', 'r', function(e) {
             e.preventDefault();
             $('#nav-filter-unread').click();
+        });
+
+        // 'Shift + r': Refresh sources
+        $(document).bind('keydown', 'Shift+r', function(e) {
+            e.preventDefault();
+            $('#nav-refresh').click();
         });
         
         // 'Ctrl+m': mark all as read
@@ -211,30 +217,18 @@ selfoss.shortcuts = {
         // load more
         if(current.hasClass('stream-more'))
             current.click().removeClass('selected').prev().addClass('selected');
-        
-        // open?
-        if(open) {
-            var content = current.find('.entry-content');
-            // load images not on mobile devices
-            if(selfoss.isMobile()==false) {
-                content.lazyLoadImages();
-                current.next().find('.entry-content').lazyLoadImages();
-            }
-            // anonymize
-            selfoss.anonymize(content);
-            content.show();
-            current.find('.entry-toolbar').show();
-            selfoss.events.entriesToolbar(current);
-            // automark as read
-            if($('#config').data('auto_mark_as_read')=="1" && current.hasClass('unread'))
-                current.find('.entry-unread').click();
 
-            // setup fancyBox image viewer
-            selfoss.setupFancyBox(content, content.parent().attr('id').substr(5));
-        }
+        // open?
+        if(!current.hasClass('stream-more') && open)
+            current.find('.entry-title').click();
+        else
+            selfoss.events.setHash();
         
         // scroll to element
         selfoss.shortcuts.autoscroll(current);
+
+        // focus the icon for better keyboard navigation
+        current.find('.entry-icon').focus();
     },
     
     

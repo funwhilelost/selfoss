@@ -2,6 +2,9 @@
 RewriteEngine On
 #RewriteBase /selfoss
 
+# rule for ACME
+RewriteRule .well-known/(.*) - [L]
+
 # rule for favicons
 RewriteRule !data/favicons/(.*)$ - [C]
 RewriteRule favicons/(.*)$ data/favicons/$1 [L]
@@ -28,8 +31,7 @@ RewriteRule (.*) public/$1 [L]
 
 # deny requests for config files
 <FilesMatch ".(ini)$">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </FilesMatch>
 
 # Disable ETags
